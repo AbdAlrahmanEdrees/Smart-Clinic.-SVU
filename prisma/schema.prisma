@@ -1,0 +1,101 @@
+generator client {
+  provider   = "prisma-client"
+  output     = "../generated/prisma"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id                        String             @id @default(uuid())
+  fullName                  String             @map("full_name")
+  email                     String             @unique
+  phone                     String             @unique
+  approvalStatus            UserApprovalStatus @default(NOT_VERIFIED) @map("user_approval_status")
+  type                      UserRole           @default(PATIENT) @map("user_type")
+  verificationCode          Int?               @map("verification_code")
+  verificationCodeExpiresAt DateTime?          @map("verification_code_expires_at")
+  hashedPassword            String             @map("hashed_password")
+  hashedRt                  String?            @map("hashed_rt")
+  banEndsAt                 DateTime?          @map("ban_ends_at")
+  createdAt                 DateTime           @default(now()) @map("created_at")
+  updatedAt                 DateTime           @updatedAt @map("updated_at")
+
+  // Relations (These do not exist as columns in the DB, only in the Prisma Client)
+  doctorProfile         Doctor?
+  appointmentsAsPatient Appointment[] @relation("PatientAppointments")
+}
+
+enum UserApprovalStatus {
+  NOT_VERIFIED
+  VERIFIED
+  BANNED
+
+  @@map("user_approval_status")
+}
+
+enum UserRole {
+  DOCTOR
+  PATIENT
+
+  @@map("user_type")
+}
+
+model Specialty {
+  id      Int      @id @default(autoincrement())
+  name    String   @unique
+  doctors Doctor[]
+}
+
+model Doctor {
+  id              Int           @id @default(autoincrement())
+  userId          String        @unique @map("user_id")
+  user            User          @relation(fields: [userId], references: [id])
+  specialtyId     Int           @map("specialty_id")
+  specialty       Specialty     @relation(fields: [specialtyId], references: [id])
+  consultationFee Float         @map("consultation_fee")
+  appointments    Appointment[]
+}
+
+model Appointment {
+  id              Int               @id @default(autoincrement())
+  patientId       String            @map("patient_id")
+  patient         User              @relation("PatientAppointments", fields: [patientId], references: [id])
+  doctorId        Int               @map("doctor_id")
+  doctor          Doctor            @relation(fields: [doctorId], references: [id])
+  appointmentDate DateTime          @map("appointment_date")
+  status          AppointmentStatus @default(PENDING)
+  doctorNote      String?           @map("doctor_note")
+}
+
+enum AppointmentStatus {
+  PENDING
+  CANCELLED
+  COMPLETED
+  CONFIRMED
+
+  @@map("appointment_status")
+}
+
+/**
+ * ## Important Note (so far) ##
+ * # When you use an enum + @map() like this:
+ * enum StudyField{
+ * MARKETING @map("Marketing")
+ * INFORMATION_TECHNOLOGIES @map("Information Technologies")
+ * }
+ * # These codes will not work successsfully:
+ * prisma.students.find..({
+ * where:{educationField:EducationFieldType.MARKETING}
+ * })
+ * prisma.students.find..({
+ * where:{educationField:"Marketing"}
+ * })
+ * # Only this syntax worked:
+ * this.prisma.employees.findMany({
+ * where:{
+ * educationField:"HUMAN_RESOURCES" as any
+ * })
+ */
