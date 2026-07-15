@@ -9,17 +9,19 @@ export class EmailService {
     private emailTransport() {
         const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
 
-        if (isProduction) {
-            const transporter = nodemailer.createTransport({
-                host: this.configService.get<string>('EMAIL_HOST'),
-                port: this.configService.get<number>('EMAIL_PORT'),
-                secure: false,
+        if (isProduction) {// Forcing IPv4 to bypass Railway's IPv6 routing timeout
+            return nodemailer.createTransport({
+                host: '108.177.96.109',
+                port: 465,
+                secure: true,
                 auth: {
                     user: this.configService.get<string>('EMAIL_USER'),
                     pass: this.configService.get<string>('EMAIL_PASSWORD'),
+                },
+                tls: {
+                    servername: 'smtp.gmail.com', // Required for SSL certificate verification
                 }
             });
-            return transporter;
         }
 
         // Local development bypass for your Windows DNS issue
