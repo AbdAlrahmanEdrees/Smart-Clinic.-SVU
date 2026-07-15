@@ -5,6 +5,7 @@ import { Doctor, UserRole } from 'generated/prisma/client';
 import { GetDoctorsDto } from './dto/get-doctors.dto';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { RolesGuard } from 'src/common/guards/roles.guard';
+import { MyPublic } from 'src/common/decorators/public.decorator';
 
 @ApiTags('Doctors')
 @ApiBearerAuth() // Restored so Swagger requires the JWT token
@@ -24,6 +25,7 @@ export class DoctorController {
     }
     
     @Get('specialities')
+    @MyPublic()
     @HttpCode(HttpStatus.OK)
     @ApiOperation({summary: 'Retrieves the types of specialties defined in the system'})
     getSpecialties(){
