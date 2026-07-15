@@ -26,4 +26,7 @@ export class DoctorService {
             },
         });
     }
+    async getSpecialties(){
+        return this.prisma.specialty.findMany()
+    }
 }

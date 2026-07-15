@@ -1,4 +1,4 @@
-import { ExecutionContext, Injectable } from '@nestjs/common';
+import { ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
@@ -22,5 +22,19 @@ export class AtGuard extends AuthGuard('jwt') {
 
     // Otherwise, run the standard JWT check
     return super.canActivate(context);
+  }
+
+  // Intercepts the Passport response before throwing the 401
+  handleRequest(err: any, user: any, info: any) {
+    // 'info' contains the exact reason Passport rejected the token
+    if (info) {
+      console.log('Passport rejection reason:', info.message);
+    }
+    
+    if (err || !user) {
+      throw err || new UnauthorizedException();
+    }
+    
+    return user;
   }
 }
