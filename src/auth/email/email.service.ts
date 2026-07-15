@@ -10,11 +10,11 @@ export class EmailService {
         const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
 
         if (isProduction) {
-            // Explicit SMTP configuration for Railway
             return nodemailer.createTransport({
                 host: 'smtp.gmail.com',
-                port: 465,
-                secure: true, // true for 465, false for other ports
+                port: 587, // Changed from 465
+                secure: false, // Must be false for 587 (uses STARTTLS)
+                requireTLS: true, // Forces encryption
                 auth: {
                     user: this.configService.get<string>('EMAIL_USER'),
                     pass: this.configService.get<string>('EMAIL_PASSWORD'),
@@ -38,7 +38,7 @@ export class EmailService {
     }
 
     async sendVerificationCode(email: string, code: number) {
-            console.log('################################\n trying to send email:');
+        console.log('################################\n trying to send email:');
         const transporter = this.emailTransport();
         const mailOptions = {
             from: this.configService.get<string>('EMAIL_USER'),
