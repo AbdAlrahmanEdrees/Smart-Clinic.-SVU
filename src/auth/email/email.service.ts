@@ -10,9 +10,11 @@ export class EmailService {
         const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
 
         if (isProduction) {
-            // Safe, standard approach for Railway / Vercel
+            // Explicit SMTP configuration for Railway
             return nodemailer.createTransport({
-                service: 'gmail',
+                host: 'smtp.gmail.com',
+                port: 465,
+                secure: true, // true for 465, false for other ports
                 auth: {
                     user: this.configService.get<string>('EMAIL_USER'),
                     pass: this.configService.get<string>('EMAIL_PASSWORD'),
