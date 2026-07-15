@@ -38,6 +38,7 @@ export class EmailService {
     }
 
     async sendVerificationCode(email: string, code: number) {
+            console.log('################################\n trying to send email:');
         const transporter = this.emailTransport();
         const mailOptions = {
             from: this.configService.get<string>('EMAIL_USER'),
