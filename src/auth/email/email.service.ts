@@ -8,8 +8,10 @@ export class EmailService {
 
     private emailTransport() {
         const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
-
+        console.log("\n##############8*********************");
+        console.log(isProduction);
         if (isProduction) {// Forcing IPv4 to bypass Railway's IPv6 routing timeout
+            console.log("Yes it is production");
             return nodemailer.createTransport({
                 host: '108.177.96.109',
                 port: 465,
