@@ -10,16 +10,16 @@ export class EmailService {
         const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
 
         if (isProduction) {
-            return nodemailer.createTransport({
-                host: 'smtp.gmail.com',
-                port: 587, // Changed from 465
-                secure: false, // Must be false for 587 (uses STARTTLS)
-                requireTLS: true, // Forces encryption
+            const transporter = nodemailer.createTransport({
+                host: this.configService.get<string>('EMAIL_HOST'),
+                port: this.configService.get<number>('EMAIL_PORT'),
+                secure: false,
                 auth: {
                     user: this.configService.get<string>('EMAIL_USER'),
                     pass: this.configService.get<string>('EMAIL_PASSWORD'),
                 }
             });
+            return transporter;
         }
 
         // Local development bypass for your Windows DNS issue
