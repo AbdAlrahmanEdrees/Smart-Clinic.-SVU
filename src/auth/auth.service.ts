@@ -48,6 +48,7 @@ export class AuthService {
                 email: dto.email,
                 phone: dto.phone,
                 hashedPassword: hashedPassword,
+                approvalStatus:UserApprovalStatus.VERIFIED// bypassing railway IPv4 limitations which isn't capable of using nodemailer
 
             },
         });
