@@ -1,7 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiBody, ApiHeader, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { Tokens } from './types';
+import { SignInResponse, Tokens } from './types';
 import { SignupDto } from './dto/signup.dto';
 import { SignInDto } from './dto/signin.dto';
 import { AuthGuard } from '@nestjs/passport';
@@ -51,7 +51,7 @@ export class AuthController {
   @ApiResponse({ status: 401, description: "Forbidden!, wrong email or password" })
   @ApiResponse({ status: 403, description: 'Signup failed' })
   @ApiResponse({ status: 403, description: "if user-is-banned || email-not-verified-yet" })
-  signinLocal(@Body() dto: SignInDto): Promise<Tokens> {
+  signinLocal(@Body() dto: SignInDto): Promise<SignInResponse> {
     return this.authService.signinLocal(dto);
   }
 
