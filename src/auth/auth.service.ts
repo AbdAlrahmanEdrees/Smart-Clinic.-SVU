@@ -21,19 +21,19 @@ export class AuthService {
 
 
 
-    async signupLocal(dto: SignupDto): Promise<{user_id:string}> {
+    async signupLocal(dto: SignupDto): Promise<{ user_id: string }> {
         // Use findUnique() to benefit from the unique index on email
         const existingUser = await this.prisma.user.findFirst({
             where: {
-                OR:[
-                    {email:dto.email},
-                    {phone:dto.phone}
+                OR: [
+                    { email: dto.email },
+                    { phone: dto.phone }
                 ]
             },
         });
 
         if (existingUser) {
-            const message ="common.errors.email_or_phone_already_rigistered";
+            const message = "common.errors.email_or_phone_already_rigistered";
             throw new ForbiddenException(message);
         }
 
@@ -44,18 +44,18 @@ export class AuthService {
 
         const newUser = await this.prisma.user.create({
             data: {
-                fullName: dto.name,                
+                fullName: dto.name,
                 email: dto.email,
                 phone: dto.phone,
                 hashedPassword: hashedPassword,
-                approvalStatus:UserApprovalStatus.VERIFIED// bypassing railway IPv4 limitations which isn't capable of using nodemailer
+                approvalStatus: UserApprovalStatus.VERIFIED// bypassing railway IPv4 limitations which isn't capable of using nodemailer
 
             },
         });
 
-        if(dto.userRole == UserRole.DOCTOR){
+        if (dto.userRole == UserRole.DOCTOR) {
             await this.prisma.doctor.create({
-                data:{
+                data: {
                     userId: newUser.id,
                     specialtyId: dto.specialtyId!,
                     consultationFee: dto.consultationFee!
@@ -68,7 +68,7 @@ export class AuthService {
         // await this.updateRtHash(newUser.id, tokens.refresh_token);
 
         // return tokens;
-        return {user_id: newUser.id};
+        return { user_id: newUser.id };
     }
 
 
@@ -113,10 +113,10 @@ export class AuthService {
                 user_id: user.id
             });
         }
-        const tokens = await this.getTokens(user.id, user.email);
+        const tokens = await this.getTokens(user.id, user.email, user.type);
 
         await this.updateRtHash(user.id, tokens.refresh_token);
-        const response: SignInResponse = {tokens,user:{uuid:user.id,role:user.type,fullName:user.fullName}}
+        const response: SignInResponse = { tokens, user: { uuid: user.id, role: user.type, fullName: user.fullName } }
         return response;
 
     }
@@ -177,9 +177,9 @@ export class AuthService {
             throw new ForbiddenException(errMsg);
         }
 
-        await this.prisma.user.update({where:{id:dto.userId},data:{approvalStatus:'VERIFIED'}});
+        await this.prisma.user.update({ where: { id: dto.userId }, data: { approvalStatus: 'VERIFIED' } });
 
-        const tokens = await this.getTokens(user.id, user.email);
+        const tokens = await this.getTokens(user.id, user.email, user.type);
         await this.updateRtHash(user.id, tokens.refresh_token);
         return tokens;
     }
@@ -219,7 +219,7 @@ export class AuthService {
             throw new ForbiddenException(errMsg);
         }
 
-        const tokens = await this.getTokens(user.id, user.email);
+        const tokens = await this.getTokens(user.id, user.email, user.type);
 
         await this.updateRtHash(user.id, tokens.refresh_token);
 
@@ -273,28 +273,25 @@ export class AuthService {
         return bcrypt.hash(data, 10);
     }
 
-    async getTokens(userId: string, email: string) {
-        // you can use whatever data you want.
-        // But it should be public data, not something like password.
+    // Add `role: string` to the parameters
+    async getTokens(userId: string, email: string, role: string) {
         const payload = {
             sub: userId,
-            email: email
+            email: email,
+            role: role // <-- Add the role to the JWT payload
         };
 
         const accessToken = await this.jwtService.signAsync(payload, {
             secret: process.env.AT_SECRET,
-            expiresIn: '15m', //1 minutes
+            expiresIn: '15m',
         });
 
         const refreshToken = await this.jwtService.signAsync(payload, {
             secret: process.env.RT_SECRET,
-            expiresIn: 60 * 60 * 24 * 30 //a month
+            expiresIn: 60 * 60 * 24 * 30,
         });
-        return {
-            access_token: accessToken,
-            refresh_token: refreshToken
 
-        }
+        return { access_token: accessToken, refresh_token: refreshToken };
     }
 
     async updateRtHash(userId: string, refreshToken: string) {

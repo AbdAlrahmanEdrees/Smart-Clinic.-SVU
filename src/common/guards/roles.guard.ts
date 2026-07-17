@@ -26,7 +26,7 @@ export class RolesGuard implements CanActivate {
         const { user } = context
             .switchToHttp()
             .getRequest<{ user: { role: UserRole } }>();
-
+        console.log(user);
         if (!user || !user.role) {
             throw new UnauthorizedException('Role information missing');
         }
