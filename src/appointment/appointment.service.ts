@@ -3,6 +3,7 @@ import { PrismaService } from '../common/prisma/prisma.service'; // Adjust path 
 import { RequestAppointmentDto } from './dto/request-appointment.dto';
 import { AppointmentStatus } from 'generated/prisma/enums';
 import { Appointment } from 'generated/prisma/client';
+import { UpdateAppointmentStatusDto } from './dto/update_appointment.dto';
 
 @Injectable()
 export class AppointmentService {
@@ -44,7 +45,8 @@ export class AppointmentService {
         return appointment;
     }
 
-    async updateAppointmentStatus(appointmentId: number, status: AppointmentStatus): Promise<Appointment> {
+    // FIXED: Now accepts the UpdateAppointmentStatusDto instead of just the status enum
+    async updateAppointmentStatus(appointmentId: number, dto: UpdateAppointmentStatusDto): Promise<Appointment> {
         const existingAppointment = await this.prisma.appointment.findUnique({
             where: { id: appointmentId },
         });
@@ -53,12 +55,12 @@ export class AppointmentService {
             throw new NotFoundException('Appointment not found.');
         }
 
-        // Optimization: If the status is already what the user wants, return immediately to save a DB call
-        if (existingAppointment.status === status) {
+        // Optimization: Return immediately if status is unchanged AND no new prescription is being added
+        if (existingAppointment.status === dto.status && !dto.doctorNote) {
             return existingAppointment;
         }
 
-        if (status === AppointmentStatus.CONFIRMED) {
+        if (dto.status === AppointmentStatus.CONFIRMED) {
             const schedulingConflict = await this.prisma.appointment.findFirst({
                 where: {
                     doctorId: existingAppointment.doctorId,
@@ -75,7 +77,10 @@ export class AppointmentService {
 
         return this.prisma.appointment.update({
             where: { id: appointmentId },
-            data: { status },
+            data: {
+                status: dto.status,
+                ...(dto.doctorNote && { doctorNote: dto.doctorNote }),
+            },
         });
     }
 
@@ -114,7 +119,7 @@ export class AppointmentService {
             skip: skip || 0,
             take: take || 10,
             orderBy: {
-                appointmentDate: 'asc', 
+                appointmentDate: 'asc',
             },
             include: {
                 patient: {

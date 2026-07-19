@@ -3,14 +3,13 @@ import { PrismaService } from 'src/common/prisma/prisma.service';
 import bcrypt from 'bcrypt';
 import { SignInResponse, Tokens } from './types';
 import { JwtService } from '@nestjs/jwt';
-// import * as env from 'dotenv';
 import { SignupDto } from './dto/signup.dto';
 import { SignInDto } from './dto/signin.dto';
 import { EmailService } from 'src/auth/email/email.service';
 import { UserApprovalStatus, UserRole } from 'generated/prisma/enums';
 import { VerifingDto } from './dto/verification.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-// env.config();
+
 @Injectable()
 export class AuthService {
     constructor(
@@ -18,8 +17,6 @@ export class AuthService {
         private jwtService: JwtService,
         private emailService: EmailService
     ) { }
-
-
 
     async signupLocal(dto: SignupDto): Promise<{ user_id: string }> {
         // Use findUnique() to benefit from the unique index on email
@@ -37,9 +34,6 @@ export class AuthService {
             throw new ForbiddenException(message);
         }
 
-        // ************************************************
-        // ***********Email Verification Code**************
-        // ************************************************     
         const hashedPassword = await this.hashData(dto.password);
 
         const newUser = await this.prisma.user.create({
@@ -48,8 +42,8 @@ export class AuthService {
                 email: dto.email,
                 phone: dto.phone,
                 hashedPassword: hashedPassword,
-                approvalStatus: UserApprovalStatus.VERIFIED// bypassing railway IPv4 limitations which isn't capable of using nodemailer
-
+                type: dto.userRole, // <-- FIX: explicitly mapping the role to the DB schema
+                approvalStatus: UserApprovalStatus.VERIFIED
             },
         });
 
@@ -62,12 +56,9 @@ export class AuthService {
                 }
             })
         }
+
         this.sendVerificationCode(newUser.id);
-        // const tokens = await this.getTokens(newUser.id, newUser.email);
 
-        // await this.updateRtHash(newUser.id, tokens.refresh_token);
-
-        // return tokens;
         return { user_id: newUser.id };
     }
 
@@ -87,16 +78,19 @@ export class AuthService {
                 }
             });
         }
+
         if (!user) {
             const errMsg = "email_or_password_incorrect";
             throw new UnauthorizedException(errMsg);
         }
+
         const passwordMatches = await bcrypt.compare(dto.password, user.hashedPassword);
 
         if (!passwordMatches) {
             const errMsg = "email_or_password_incorrect";
             throw new UnauthorizedException(errMsg);
         }
+
         if (user.approvalStatus == UserApprovalStatus.BANNED) {
             const d = user.banEndsAt!;
             const formatted = `${d.getDate()}-${d.getMonth() + 1}-${d.getFullYear()}`
@@ -104,6 +98,7 @@ export class AuthService {
 
             throw new UnauthorizedException(errMsg);
         }
+
         if (user.approvalStatus == UserApprovalStatus.NOT_VERIFIED) {
             const errMsg = "enter_verification_code";
             throw new UnauthorizedException({
@@ -113,12 +108,12 @@ export class AuthService {
                 user_id: user.id
             });
         }
+
         const tokens = await this.getTokens(user.id, user.email, user.type);
 
         await this.updateRtHash(user.id, tokens.refresh_token);
         const response: SignInResponse = { tokens, user: { uuid: user.id, role: user.type, fullName: user.fullName } }
         return response;
-
     }
 
     async logout(userId: string) {
@@ -133,7 +128,6 @@ export class AuthService {
                 hashedRt: null
             }
         })
-
     }
 
     async resetPassword(dto: ResetPasswordDto) {
@@ -143,14 +137,18 @@ export class AuthService {
                 email: dto.email
             }
         });
+
         if (!user) {
             throw new ForbiddenException();
         }
+
         if (user.verificationCodeExpiresAt! < new Date(Date.now()) ||
             user.verificationCode != dto.code) {
             throw new ForbiddenException();
         }
+
         const hashedPassword = await this.hashData(dto.newPassword);
+
         await this.prisma.user.update({
             where: {
                 id: dto.userId
@@ -159,7 +157,6 @@ export class AuthService {
                 hashedPassword: hashedPassword
             }
         });
-
     }
 
     async verifyAccount(dto: VerifingDto): Promise<Tokens> {
@@ -191,10 +188,12 @@ export class AuthService {
                 id: userId
             }
         });
+
         if (!user?.hashedRt) {
             const errMsg = "access_denied";
             throw new ForbiddenException(errMsg);
         }
+
         if (user.approvalStatus == UserApprovalStatus.BANNED) {
             if (user.banEndsAt! < new Date(Date.now())) {
                 const banEndsAt = user.banEndsAt!.getDay().toString() + "-" +
@@ -213,6 +212,7 @@ export class AuthService {
                 }
             })
         }
+
         const rtMatches = await bcrypt.compare(rt, user.hashedRt);
         if (!rtMatches) {
             const errMsg = "access_denied";
@@ -232,20 +232,18 @@ export class AuthService {
                 id: userId
             }
         });
+
         if (!user) {
             throw new ForbiddenException();
         }
+
         if (user.verificationCodeExpiresAt) {
             const expiresAt = user.verificationCodeExpiresAt.getTime();
-
-            const lastSentAt = expiresAt - 10 * 60 * 1000;        // subtract 10 minutes
-            const nextAllowedSendAt = lastSentAt + 60 * 1000;     // +1 minute cooldown
+            const lastSentAt = expiresAt - 10 * 60 * 1000;
+            const nextAllowedSendAt = lastSentAt + 60 * 1000;
 
             if (Date.now() < nextAllowedSendAt) {
-                throw new ForbiddenException(
-                    "try_again_later"
-                );
-                // throw new ForbiddenException();
+                throw new ForbiddenException("try_again_later");
             }
         }
 
@@ -262,23 +260,15 @@ export class AuthService {
         });
     }
 
-
-
-    /*
-    helper function:
-    */
-
-
     hashData(data: string) {
         return bcrypt.hash(data, 10);
     }
 
-    // Add `role: string` to the parameters
     async getTokens(userId: string, email: string, role: string) {
         const payload = {
             sub: userId,
             email: email,
-            role: role // <-- Add the role to the JWT payload
+            role: role
         };
 
         const accessToken = await this.jwtService.signAsync(payload, {
@@ -301,7 +291,5 @@ export class AuthService {
                 hashedRt: rtHashed,
             }
         });
-
     }
-
 }

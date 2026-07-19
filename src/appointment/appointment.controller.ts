@@ -7,6 +7,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole, AppointmentStatus } from 'generated/prisma/enums';
 import { JwtPayload } from 'src/auth/types/jwtPayload.type';
+import { UpdateAppointmentStatusDto } from './dto/update_appointment.dto';
 
 @ApiTags('Appointments')
 @ApiBearerAuth()
@@ -34,11 +35,11 @@ export class AppointmentController {
     @Roles(UserRole.DOCTOR) // Only doctors (or admins) should confirm/cancel
     @ApiOperation({ summary: 'Update the status of an appointment' })
     @ApiResponse({ status: 200, description: 'Status updated successfully.' })
-    updateAppointmentStatus(
-        @Param('id', ParseIntPipe) appointmentId: number,
-        @Body('status', new ParseEnumPipe(AppointmentStatus)) status: AppointmentStatus
+    async updateAppointmentStatus(
+        @Param('id') id: string,
+        @Body() dto: UpdateAppointmentStatusDto
     ) {
-        return this.appointmentService.updateAppointmentStatus(appointmentId, status);
+        return this.appointmentService.updateAppointmentStatus(+id, dto);
     }
 
     @Get('patient')
